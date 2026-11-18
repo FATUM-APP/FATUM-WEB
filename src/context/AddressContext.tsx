@@ -1,17 +1,8 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumAddress } from '../types';
+import { authHeaders } from '../utils/cognito';
 
-const API_BASE = import.meta.env.DEV
-  ? '/api/users'
-  : 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
-
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('fatumToken');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: token } : {}),
-  };
-}
+const API_BASE = 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
 
 interface AddressState {
   addresses: FatumAddress[];
@@ -33,9 +24,10 @@ export function AddressProvider({ children }: { children: ReactNode }) {
   const loadAddresses = useCallback(async () => {
     try {
       setIsLoading(true);
+      const headers = await authHeaders();
       const [allRes, principalRes] = await Promise.all([
-        fetch(`${API_BASE}/users/addresses/mine`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/users/addresses/principal`, { headers: authHeaders() }),
+        fetch(`${API_BASE}/users/addresses/mine`, { headers }),
+        fetch(`${API_BASE}/users/addresses/principal`, { headers }),
       ]);
       if (allRes.ok) setAddresses(await allRes.json());
       if (principalRes.ok) setPrincipalAddress(await principalRes.json());
@@ -45,9 +37,10 @@ export function AddressProvider({ children }: { children: ReactNode }) {
 
   const createAddress = async (addr: Omit<FatumAddress, 'userName'>): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/users/addresses/new`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
         body: JSON.stringify(addr),
       });
       if (res.ok) { await loadAddresses(); return true; }
@@ -57,9 +50,10 @@ export function AddressProvider({ children }: { children: ReactNode }) {
 
   const makePrincipal = async (alias: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/users/addresses/principal?alias=${encodeURIComponent(alias)}`, {
         method: 'PUT',
-        headers: authHeaders(),
+        headers,
       });
       if (res.ok) { await loadAddresses(); return true; }
     } catch { /* network error */ }
@@ -68,9 +62,10 @@ export function AddressProvider({ children }: { children: ReactNode }) {
 
   const deleteAddress = async (alias: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/users/addresses/delete?alias=${encodeURIComponent(alias)}`, {
         method: 'DELETE',
-        headers: authHeaders(),
+        headers,
       });
       if (res.ok) { await loadAddresses(); return true; }
     } catch { /* network error */ }

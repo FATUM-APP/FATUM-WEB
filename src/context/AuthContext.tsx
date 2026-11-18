@@ -1,45 +1,24 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  CognitoUser,
+  AuthenticationDetails,
+  CognitoUserAttribute,
+  type CognitoUserSession,
+} from 'amazon-cognito-identity-js';
 import type { FatumUser, Gender, DocumentType } from '../types';
+import { USER_POOL, getIdToken } from '../utils/cognito';
 
-const API_BASE = import.meta.env.DEV
-  ? '/api/users'
-  : 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
+const USER_API = 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
 
-function getToken(): string | null {
-  try { return localStorage.getItem('fatumToken'); } catch { return null; }
-}
-
-function setToken(token: string | null) {
-  try {
-    if (token) localStorage.setItem('fatumToken', token);
-    else localStorage.removeItem('fatumToken');
-  } catch { /* private browsing */ }
-}
-
-async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const url = `${API_BASE}${path}`;
-  console.log(`[Fatum API] ${opts.method ?? 'GET'} ${url}`);
-  try {
-    const res = await fetch(url, {
-      ...opts,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: token } : {}),
-        ...opts.headers,
-      },
-    });
-    console.log(`[Fatum API] ${res.status} ${res.statusText} <- ${url}`);
-    if (!res.ok) {
-      const body = await res.text().catch(() => res.statusText);
-      console.error(`[Fatum API] Error body:`, body);
-      throw new Error(body);
-    }
-    return res.json();
-  } catch (e) {
-    console.error(`[Fatum API] Fetch failed:`, e);
-    throw e;
-  }
+async function fetchUserProfile(): Promise<FatumUser> {
+  const token = await getIdToken();
+  console.log('[Fatum Auth] GET /users/me');
+  const res = await fetch(`${USER_API}/users/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  console.log(`[Fatum Auth] /users/me -> ${res.status}`);
+  if (!res.ok) throw new Error(`/users/me ${res.status}`);
+  return res.json();
 }
 
 export interface SignUpRequest {
@@ -74,18 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadCurrentUser = useCallback(async () => {
-    const token = getToken();
-    console.log(`[Fatum Auth] loadCurrentUser called, token exists: ${!!token}`);
-    if (!token) { setUser(null); setIsLoading(false); return; }
+    const currentUser = USER_POOL.getCurrentUser();
+    console.log('[Fatum Auth] loadCurrentUser, session exists:', !!currentUser);
+    if (!currentUser) { setUser(null); setIsLoading(false); return; }
     try {
       setIsLoading(true);
-      const data = await apiFetch<FatumUser>('/users/me');
-      console.log(`[Fatum Auth] loadCurrentUser success:`, data);
-      setUser(data);
+      const profile = await fetchUserProfile();
+      console.log('[Fatum Auth] loadCurrentUser success:', profile.userId);
+      setUser(profile);
     } catch (e) {
-      console.error(`[Fatum Auth] loadCurrentUser failed:`, e);
+      console.error('[Fatum Auth] loadCurrentUser failed:', e);
       setUser(null);
-      setToken(null);
     } finally {
       setIsLoading(false);
     }
@@ -96,30 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string): Promise<boolean> => {
     setError(null);
     setIsLoading(true);
-    const url = `${API_BASE}/auth/sign-in`;
-    console.log(`[Fatum Auth] POST ${url}`, { email });
+    console.log('[Fatum Auth] signIn', email);
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const cognitoUser = new CognitoUser({ Username: email, Pool: USER_POOL });
+      const authDetails = new AuthenticationDetails({ Username: email, Password: password });
+
+      await new Promise<CognitoUserSession>((resolve, reject) => {
+        cognitoUser.authenticateUser(authDetails, {
+          onSuccess: resolve,
+          onFailure: reject,
+          newPasswordRequired: () => reject(new Error('Se requiere cambiar la contraseña')),
+        });
       });
-      console.log(`[Fatum Auth] ${res.status} ${res.statusText} <- ${url}`);
-      if (!res.ok) {
-        const msg = await res.text().catch(() => 'Error al iniciar sesión');
-        console.error(`[Fatum Auth] Sign-in error body:`, msg);
-        setError(msg);
-        setIsLoading(false);
-        return false;
-      }
-      const data = await res.json();
-      console.log(`[Fatum Auth] Sign-in response keys:`, Object.keys(data));
-      setToken(data.token ?? data.idToken ?? data.accessToken ?? '');
+      console.log('[Fatum Auth] Cognito signIn success');
       await loadCurrentUser();
-      return true;
-    } catch (e) {
-      console.error(`[Fatum Auth] Sign-in fetch failed:`, e);
-      setError(e instanceof Error ? e.message : 'Error al iniciar sesión');
+      return !!user || (USER_POOL.getCurrentUser() !== null);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al iniciar sesión';
+      console.error('[Fatum Auth] signIn error:', msg);
+      setError(msg);
       setIsLoading(false);
       return false;
     }
@@ -128,23 +101,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (req: SignUpRequest): Promise<'needsConfirmation' | 'completed' | null> => {
     setError(null);
     setIsLoading(true);
+    console.log('[Fatum Auth] signUp', req.email);
     try {
-      const res = await fetch(`${API_BASE}/auth/sign-up`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req),
+      const attributes = [
+        new CognitoUserAttribute({ Name: 'email', Value: req.email }),
+        new CognitoUserAttribute({ Name: 'name', Value: req.name }),
+        new CognitoUserAttribute({ Name: 'phone_number', Value: `+57${req.phone}` }),
+        new CognitoUserAttribute({ Name: 'birthdate', Value: req.birthday }),
+        new CognitoUserAttribute({ Name: 'gender', Value: req.gender }),
+        new CognitoUserAttribute({ Name: 'custom:username', Value: req.username }),
+        new CognitoUserAttribute({ Name: 'custom:document', Value: req.document }),
+        new CognitoUserAttribute({ Name: 'custom:documentType', Value: req.documentType }),
+      ];
+
+      const result = await new Promise<{ userConfirmed: boolean }>((resolve, reject) => {
+        USER_POOL.signUp(req.email, req.password, attributes, [], (err, data) => {
+          if (err) return reject(err);
+          resolve({ userConfirmed: data?.userConfirmed ?? false });
+        });
       });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => 'Error al registrar');
-        setError(msg);
-        setIsLoading(false);
-        return null;
-      }
-      const data = await res.json();
+
+      console.log('[Fatum Auth] signUp result, confirmed:', result.userConfirmed);
       setIsLoading(false);
-      return data.confirmed ? 'completed' : 'needsConfirmation';
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error al registrar');
+      return result.userConfirmed ? 'completed' : 'needsConfirmation';
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Error al registrar';
+      console.error('[Fatum Auth] signUp error:', msg);
+      setError(msg);
       setIsLoading(false);
       return null;
     }
@@ -153,28 +136,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const confirmSignUp = async (email: string, code: string): Promise<boolean> => {
     setError(null);
     setIsLoading(true);
+    console.log('[Fatum Auth] confirmSignUp', email);
     try {
-      const res = await fetch(`${API_BASE}/auth/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
+      const cognitoUser = new CognitoUser({ Username: email, Pool: USER_POOL });
+      await new Promise<void>((resolve, reject) => {
+        cognitoUser.confirmRegistration(code, true, (err) => {
+          if (err) return reject(err);
+          resolve();
+        });
       });
+      console.log('[Fatum Auth] confirmSignUp success');
       setIsLoading(false);
-      if (!res.ok) {
-        const msg = await res.text().catch(() => 'Código incorrecto');
-        setError(msg);
-        return false;
-      }
       return true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error de confirmación');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Código incorrecto';
+      console.error('[Fatum Auth] confirmSignUp error:', msg);
+      setError(msg);
       setIsLoading(false);
       return false;
     }
   };
 
   const signOut = () => {
-    setToken(null);
+    const currentUser = USER_POOL.getCurrentUser();
+    if (currentUser) currentUser.signOut();
     setUser(null);
     setError(null);
   };

@@ -1,17 +1,8 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumItem } from '../types';
+import { authHeaders } from '../utils/cognito';
 
-const API_BASE = import.meta.env.DEV
-  ? '/api/catalog'
-  : 'https://api.fatumapp.click/catalog';
-
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('fatumToken');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: token } : {}),
-  };
-}
+const API_BASE = 'https://api.fatumapp.click/catalog';
 
 interface FavoritesState {
   favorites: FatumItem[];
@@ -31,10 +22,11 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const loadFavorites = useCallback(async (categorySlug?: string) => {
     try {
       setIsLoading(true);
+      const headers = await authHeaders();
       const url = categorySlug
         ? `${API_BASE}/favorites?category=${categorySlug}`
         : `${API_BASE}/favorites`;
-      const res = await fetch(url, { headers: authHeaders() });
+      const res = await fetch(url, { headers });
       if (res.ok) setFavorites(await res.json());
     } catch { /* network error */ }
     finally { setIsLoading(false); }
@@ -42,9 +34,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
   const addFavorite = async (itemId: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/favorites/${itemId}`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
       });
       if (res.ok) {
         await loadFavorites();
@@ -56,9 +49,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
   const removeFavorite = async (itemId: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/favorites/${itemId}`, {
         method: 'DELETE',
-        headers: authHeaders(),
+        headers,
       });
       if (res.ok) {
         setFavorites(prev => prev.filter(f => f.id !== itemId));

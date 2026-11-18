@@ -1,19 +1,10 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumOrder } from '../types';
+import { authHeaders } from '../utils/cognito';
 
-const API_BASE = import.meta.env.DEV
-  ? '/api/order'
-  : 'https://api.fatumapp.click/order';
+const API_BASE = 'https://api.fatumapp.click/order';
 
 type OrderFilter = 'pending' | 'completed' | 'review';
-
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('fatumToken');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: token } : {}),
-  };
-}
 
 interface OrderState {
   orders: FatumOrder[];
@@ -37,7 +28,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const loadOrders = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_BASE}/mine?filter=${filter}`, { headers: authHeaders() });
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE}/mine?filter=${filter}`, { headers });
       if (res.ok) setOrders(await res.json());
     } catch { /* network error */ }
     finally { setIsLoading(false); }
@@ -45,9 +37,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const accept = async (id: string, estimatedMinutes: number): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/${id}/accept`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
         body: JSON.stringify({ estimatedMinutes }),
       });
       if (res.ok) { await loadOrders(); return true; }
@@ -57,9 +50,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const reject = async (id: string, reason: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/${id}/reject`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
         body: JSON.stringify({ reason }),
       });
       if (res.ok) { await loadOrders(); return true; }
@@ -69,9 +63,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const cancel = async (id: string, reason: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/${id}/cancel`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
         body: JSON.stringify({ reason }),
       });
       if (res.ok) { await loadOrders(); return true; }
@@ -81,9 +76,10 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const confirm = async (id: string, stage: string): Promise<boolean> => {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE}/${id}/confirm`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers,
         body: JSON.stringify({ stage }),
       });
       if (res.ok) { await loadOrders(); return true; }

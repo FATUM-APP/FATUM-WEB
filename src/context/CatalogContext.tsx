@@ -1,17 +1,8 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumCategory, FatumItem } from '../types';
+import { authHeaders } from '../utils/cognito';
 
-const API_BASE = import.meta.env.DEV
-  ? '/api/catalog'
-  : 'https://api.fatumapp.click/catalog';
-
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('fatumToken');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: token } : {}),
-  };
-}
+const API_BASE = 'https://api.fatumapp.click/catalog';
 
 interface CatalogState {
   categories: FatumCategory[];
@@ -32,7 +23,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const loadCategories = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_BASE}/categories`, { headers: authHeaders() });
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE}/categories`, { headers });
       if (res.ok) setCategories(await res.json());
     } catch { /* network error */ }
     finally { setIsLoading(false); }
@@ -41,8 +33,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const loadItems = useCallback(async (categorySlug?: string) => {
     try {
       setIsLoading(true);
+      const headers = await authHeaders();
       const url = categorySlug ? `${API_BASE}/items?category=${categorySlug}` : `${API_BASE}/items`;
-      const res = await fetch(url, { headers: authHeaders() });
+      const res = await fetch(url, { headers });
       if (res.ok) setItems(await res.json());
     } catch { /* network error */ }
     finally { setIsLoading(false); }
@@ -51,7 +44,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const searchItems = useCallback(async (query: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_BASE}/items?search=${encodeURIComponent(query)}`, { headers: authHeaders() });
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE}/items?search=${encodeURIComponent(query)}`, { headers });
       if (res.ok) setItems(await res.json());
     } catch { /* network error */ }
     finally { setIsLoading(false); }
