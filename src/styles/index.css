@@ -1,0 +1,147 @@
+@font-face {
+  font-family: 'Lato';
+  src: url('/fonts/Lato-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lato';
+  src: url('/fonts/Lato-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/Poppins-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/PlayfairDisplay-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --brand-primary: #123F35;
+  --brand-secondary: #FFFFFF;
+  --fatum-accent: #7FCD6C;
+  --text: #192422;
+  --login-text: #071013;
+  --special-text-login: #011936;
+  --border: #E5E9EA;
+  --border-login: #1B4965;
+  --error-border-login: #34344A;
+  --special: #2BB6A8;
+  --inactive: #B8C2C0;
+  --primary-container: #D4E2D0;
+  --secondary-container: #E5E9EA;
+  --secondary-gradient: #F5FAF9;
+  --third-gradient: #D1E5E0;
+  --fourth-gradient: #6A9B8E;
+}
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background-color: var(--brand-secondary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: none;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+.text-premium-header {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.text-header {
+  font-family: 'Poppins', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.text-subheader {
+  font-family: 'Poppins', sans-serif;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.text-body {
+  font-family: 'Lato', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.text-caption {
+  font-family: 'Lato', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.text-footer {
+  font-family: 'Lato', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+}
