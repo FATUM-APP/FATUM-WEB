@@ -18,16 +18,28 @@ function setToken(token: string | null) {
 
 async function apiFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: token } : {}),
-      ...opts.headers,
-    },
-  });
-  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
-  return res.json();
+  const url = `${API_BASE}${path}`;
+  console.log(`[Fatum API] ${opts.method ?? 'GET'} ${url}`);
+  try {
+    const res = await fetch(url, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: token } : {}),
+        ...opts.headers,
+      },
+    });
+    console.log(`[Fatum API] ${res.status} ${res.statusText} <- ${url}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => res.statusText);
+      console.error(`[Fatum API] Error body:`, body);
+      throw new Error(body);
+    }
+    return res.json();
+  } catch (e) {
+    console.error(`[Fatum API] Fetch failed:`, e);
+    throw e;
+  }
 }
 
 export interface SignUpRequest {
@@ -63,12 +75,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadCurrentUser = useCallback(async () => {
     const token = getToken();
+    console.log(`[Fatum Auth] loadCurrentUser called, token exists: ${!!token}`);
     if (!token) { setUser(null); setIsLoading(false); return; }
     try {
       setIsLoading(true);
       const data = await apiFetch<FatumUser>('/users/me');
+      console.log(`[Fatum Auth] loadCurrentUser success:`, data);
       setUser(data);
-    } catch {
+    } catch (e) {
+      console.error(`[Fatum Auth] loadCurrentUser failed:`, e);
       setUser(null);
       setToken(null);
     } finally {
@@ -81,23 +96,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string): Promise<boolean> => {
     setError(null);
     setIsLoading(true);
+    const url = `${API_BASE}/auth/sign-in`;
+    console.log(`[Fatum Auth] POST ${url}`, { email });
     try {
-      const res = await fetch(`${API_BASE}/auth/sign-in`, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      console.log(`[Fatum Auth] ${res.status} ${res.statusText} <- ${url}`);
       if (!res.ok) {
         const msg = await res.text().catch(() => 'Error al iniciar sesión');
+        console.error(`[Fatum Auth] Sign-in error body:`, msg);
         setError(msg);
         setIsLoading(false);
         return false;
       }
       const data = await res.json();
+      console.log(`[Fatum Auth] Sign-in response keys:`, Object.keys(data));
       setToken(data.token ?? data.idToken ?? data.accessToken ?? '');
       await loadCurrentUser();
       return true;
     } catch (e) {
+      console.error(`[Fatum Auth] Sign-in fetch failed:`, e);
       setError(e instanceof Error ? e.message : 'Error al iniciar sesión');
       setIsLoading(false);
       return false;
