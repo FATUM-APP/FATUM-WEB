@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumOrder } from '../types';
 
-const API_BASE = 'https://api.fatumapp.click/order';
+const API_BASE = import.meta.env.DEV
+  ? '/api/order'
+  : 'https://api.fatumapp.click/order';
 
 type OrderFilter = 'pending' | 'completed' | 'review';
 

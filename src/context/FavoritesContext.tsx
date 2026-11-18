@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumItem } from '../types';
 
-const API_BASE = 'https://api.fatumapp.click/catalog';
+const API_BASE = import.meta.env.DEV
+  ? '/api/catalog'
+  : 'https://api.fatumapp.click/catalog';
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('fatumToken');

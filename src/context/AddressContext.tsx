@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import type { FatumAddress } from '../types';
 
-const API_BASE = 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
+const API_BASE = import.meta.env.DEV
+  ? '/api/users'
+  : 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
 
 function authHeaders(): HeadersInit {
   const token = localStorage.getItem('fatumToken');

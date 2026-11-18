@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { FatumUser, Gender, DocumentType } from '../types';
 
-const API_BASE = 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
+const API_BASE = import.meta.env.DEV
+  ? '/api/users'
+  : 'https://btx2xtbb3a.execute-api.us-east-1.amazonaws.com';
 
 function getToken(): string | null {
   try { return localStorage.getItem('fatumToken'); } catch { return null; }
